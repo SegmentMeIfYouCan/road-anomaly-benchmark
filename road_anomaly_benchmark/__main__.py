@@ -100,8 +100,14 @@ def wrap_html_table(table, title='Comparisong'):
 @click.argument('dataset_names', type=str)
 @click.option('--order-by', type=str, default=None)
 @click.option('--names', type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def comparison(comparison_name, method_names, metric_names, dataset_names, order_by=None, names=None, plot_formats=None):
+@click.option('--imports', type=str, default=None)
+def comparison(comparison_name, method_names, metric_names, dataset_names, order_by=None, names=None, plot_formats=None, imports=None):
 	from pandas import DataFrame, Series
+
+	if imports:
+		from importlib import import_module
+		for modname in name_list(imports):
+			import_module(modname)
 
 	method_names = name_list(method_names)
 	metric_names = name_list(metric_names)
