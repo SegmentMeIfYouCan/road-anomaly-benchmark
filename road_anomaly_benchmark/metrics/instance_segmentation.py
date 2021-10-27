@@ -28,7 +28,7 @@ def default_instancer(anomaly_p: np.ndarray, label_pixel_gt: np.ndarray, thresh_
     anomaly_pred[label_pixel_gt == 255] = 0
 
     """connected components"""
-    structure = np.ones((3, 3), dtype=np.int)
+    structure = np.ones((3, 3), dtype=np.uint8)
     anomaly_instances, n_anomaly = label(anomaly_gt, structure)
     anomaly_seg_pred, n_seg_pred = label(anomaly_pred, structure)
 
@@ -62,7 +62,7 @@ def anomaly_instances_from_mask(segmentation: np.ndarray, label_pixel_gt: np.nda
     anomaly_pred[label_pixel_gt == 255] = 0
 
     """connected components"""
-    structure = np.ones((3, 3), dtype=np.int)
+    structure = np.ones((3, 3), dtype=np.uint8)
     anomaly_instances, n_anomaly = label(anomaly_gt, structure)
     anomaly_seg_pred, n_seg_pred = label(anomaly_pred, structure)
 
@@ -336,3 +336,4 @@ class MetricSegment(EvaluationMetric):
             ix = np.nanargmax(f1_scores)
             self.cfg.thresh_p  = float(pixel_results.thresholds[ix])
 
+        return self.cfg.thresh_p
