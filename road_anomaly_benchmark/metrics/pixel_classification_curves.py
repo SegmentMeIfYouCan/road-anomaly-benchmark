@@ -262,7 +262,7 @@ def plot_classification_curves_draw_entry(plot_roc : pyplot.Axes, plot_prc : pyp
 		)
 
 
-def plot_classification_curves(curve_infos : List[BinaryClassificationCurve], method_names : Dict[str, str] = {}, plot_formats = {}):
+def plot_classification_curves(curve_infos : List[BinaryClassificationCurve], method_names : Dict[str, str] = {}, plot_formats = {}, plot_best = None):
 	
 	table_scores = DataFrame(data = [
 		Series({
@@ -294,7 +294,7 @@ def plot_classification_curves(curve_infos : List[BinaryClassificationCurve], me
 	curve_infos_sorted = list(curve_infos)
 	curve_infos_sorted.sort(key=attrgetter('area_PRC'), reverse=True)
 
-	for crv in curve_infos_sorted:
+	for k, crv in enumerate(curve_infos_sorted):
 		plot_classification_curves_draw_entry(
 			plot_prc = plot_prc, 
 			plot_roc = plot_roc, 
@@ -302,6 +302,8 @@ def plot_classification_curves(curve_infos : List[BinaryClassificationCurve], me
 			display_name = method_names.get(crv.method_name, crv.method_name),
 			format = plot_formats.get(crv.method_name),
 		)
+		if k == plot_best:
+			break
 
 	def make_legend(plot_obj, position='lower right', title=None):
 		handles, labels = plot_obj.get_legend_handles_labels()
