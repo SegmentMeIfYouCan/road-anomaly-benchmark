@@ -58,8 +58,7 @@ def imwrite(path, data, format=None):
 def get_boundary_mask(arr, index=1):
     arr[arr != index] = 0
     arr[arr == index] = 255
-    gt = PIL_Image.fromarray(arr.astype("uint8"))
-    bd = mark_boundaries(gt, arr)
+    bd = mark_boundaries(arr, arr)
     mask = binary_dilation(np.all(bd == [1, 1, 0], axis=-1).astype(int)).astype("uint8")
     mask = cv2.dilate(mask, kernel = np.ones((5, 5), np.uint8), iterations=1)
     bd[np.all(bd == np.ones(3), axis=-1)] = np.zeros(3)

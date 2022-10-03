@@ -16,7 +16,7 @@ def read_json(path, key=None, allow_failure=False):
 		return file_content[key] if key is not None else file_content
 
 	except Exception as e:
-		print(f'Failed to load JSON {path}: ', e)
+		# print(f'Failed to load JSON {path}: ', e)
 
 		if allow_failure:
 			return []

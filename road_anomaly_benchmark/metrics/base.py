@@ -67,7 +67,7 @@ def save_table(path, table):
 	path.parent.mkdir(parents=True, exist_ok=True)
 	
 	path.with_suffix('.html').write_text(table.to_html())
-	path.with_suffix('.tex').write_text(table.to_latex())
+	path.with_suffix('.tex').write_text(table.style.to_latex())
 
 
 	# table_tex = table_pd.to_latex(

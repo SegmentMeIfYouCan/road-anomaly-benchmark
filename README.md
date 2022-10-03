@@ -4,7 +4,7 @@
 * [RoadAnomaly21](https://uni-wuppertal.sciebo.de/s/TVR7VxukVrV7fUH/download)
 * [RoadObstacle21](https://uni-wuppertal.sciebo.de/s/wQQq2saipS339QA/download)
 * [Fishyscapes LostAndFound](https://fishyscapes.com/) - Anomalies
-* [LostAndFound](http://www.6d-vision.com/lostandfounddataset) - Obstacles
+* [LostAndFound](http://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html) - Obstacles
 
 ## Evaluation procedure
 
@@ -56,9 +56,11 @@ def main():
 The files will be stored in `./outputs/anomaly_p/...`. The storage directory can be overriden with env var `DIR_OUTPUTS`.
 There are also some methods already implemented and available in `some_methods_inference_public.py`. 
 
+**Tip**: to set environment variables `export ENV_VAR=VALUE`.
+
 ### Metrics
 
-This step will also create plots in `./outputs/{metric}`
+This step will also create plots in `./outputs/{metric}` (override with env var `DIR_OUTPUTS`)
 
 * Metrics for anomaly track, splits *AnomalyTrack-validation, FishyLAFAnomaly-val*
 
@@ -80,15 +82,21 @@ python -m road_anomaly_benchmark metric SegEval-ObstacleTrack $methods ObstacleT
 
 #### Visualization
 
-The anomaly scores can be visualized by running with `--frame-vis-only` flag.
+The anomaly scores can be visualized without ground truth by running with `--only-frame-vis` flag.
 
 ```bash
-python -m road_anomaly_benchmark metric PixBinaryClass --frame-vis-only $methods $dsets
+python -m road_anomaly_benchmark metric PixBinaryClass $methods $dsets --only-frame-vis
 ```
 
-If ground truths are available, the `--frame-vis` option both evaluates the metric and generates visualizations with the ROI region marked.
+If ground truths are available, the `--frame-vis` option both evaluates the metric and generates visualizations with the ROI region marked. The flag could be used for LostAndFound for example:
+
+```bash
+python -m road_anomaly_benchmark metric PixBinaryClass $methods LostAndFound-testNoKnown --frame-vis
+```
 
 ### Plots and Tables
+
+The following code snippets for comparisons of methods with plots and tables can only be used if ground truths are available. The general syntax for comparing methods is as follows:
 
 ```bash
 python -m road_anomaly_benchmark comparison MyComparison metric1,metric2 method1,method2 dset1,dset2
@@ -97,7 +105,7 @@ python -m road_anomaly_benchmark comparison MyComparison metric1,metric2 method1
 * Anomaly splits: *AnomalyTrack-validation, FishyLAFAnomaly-val*
 
 ```bash
-# Anomaly tables
+# Anomaly track tables
 python -m road_anomaly_benchmark comparison TableAnomaly1 PixBinaryClass,SegEval-AnomalyTrack $methods_ano AnomalyTrack-validation --names names.json
 python -m road_anomaly_benchmark comparison TableAnomaly2 PixBinaryClass,SegEval-AnomalyTrack $methods_ano FishyLAFAnomaly-val --names names.json
 ```
@@ -105,19 +113,17 @@ python -m road_anomaly_benchmark comparison TableAnomaly2 PixBinaryClass,SegEval
 * Obstacle splits: *ObstacleTrack-validation, LostAndFound-testNoKnown*
 
 ```bash
-# Obstacle tables
+# Obstacle track tables
 python -m road_anomaly_benchmark comparison TableObstacle1 PixBinaryClass,SegEval-ObstacleTrack $methods_obs ObstacleTrack-validation --names names.json
 python -m road_anomaly_benchmark comparison TableObstacle2 PixBinaryClass,SegEval-ObstacleTrack $methods_obs LostAndFound-testNoKnown --names names.json
 ```
 
 ## Citation
 If you use this repository, please consider citing our [paper](https://arxiv.org/abs/2104.14812):
-
-	@misc{segmentmeifyoucan2021,
-		  title={SegmentMeIfYouCan: A Benchmark for Anomaly Segmentation}, 
-		  author={Robin Chan and Krzysztof Lis and Svenja Uhlemeyer and Hermann Blum and Sina Honari and Roland Siegwart and Pascal Fua and Mathieu Salzmann and Matthias Rottmann},
-		  year={2021},
-		  eprint={2104.14812},
-		  archivePrefix={arXiv},
-		  primaryClass={cs.CV}
+	
+	@inproceedings{chan2021segmentmeifyoucan,
+		title={SegmentMeIfYouCan: A Benchmark for Anomaly Segmentation},
+		author={Robin Chan and Krzysztof Lis and Svenja Uhlemeyer and Hermann Blum and Sina Honari and Roland Siegwart and Pascal Fua and Mathieu Salzmann and Matthias Rottmann},
+		booktitle={Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track},
+		year={2021},
 	}

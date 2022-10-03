@@ -141,7 +141,8 @@ class MetricPixelClassification(EvaluationMetric):
 	def name(self):
 		return self.cfg.name
 	
-	def vis_frame(self, fid, dset_name, method_name, mask_roi, anomaly_p, image = None, label_pixel_gt = None, **_):
+	@staticmethod
+	def vis_frame(fid, dset_name, method_name, mask_roi, anomaly_p, image = None, label_pixel_gt = None, **_):
 		h, w = mask_roi.shape[:2]
 
 		canvas = image.copy() if image is not None else np.zeros((h, w, 3), dtype=np.uint8)
@@ -170,8 +171,11 @@ class MetricPixelClassification(EvaluationMetric):
 		@param fid: frame identifier, for saving extra outputs
 		@param dset_name: dataset identifier, for saving extra outputs
 		"""
-
-		mask_roi = label_pixel_gt < 255
+		try:
+			mask_roi = label_pixel_gt < 255
+		except TypeError:
+			print("error: no ground truth available for {}. Please check dataset path...".format(fid))
+			exit()
 
 		labels_in_roi = label_pixel_gt[mask_roi]
 		predictions_in_roi = anomaly_p[mask_roi]

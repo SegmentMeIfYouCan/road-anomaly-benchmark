@@ -24,9 +24,10 @@ def main():
 @click.argument('dataset_names', type=str)
 @click.option('--limit-length', type=int, default=0)
 @click.option('--parallel/--no-parallel', default=True)
-@click.option('--frame-vis', 'frame_vis', flag_value=1)
-@click.option('--no-frame-vis', 'frame_vis', flag_value=0)
-@click.option('--frame-vis-only', 'frame_vis', flag_value='only')
+# @click.option('--frame-vis/--no-frame-vis', default=False)
+@click.option('--frame-vis', 'frame_vis', flag_value="True")
+@click.option('--no-frame-vis', 'frame_vis', flag_value="False")
+@click.option('--only-frame-vis', 'frame_vis', flag_value="only")
 @click.option('--default-instancer/--own-instancer', default=True)
 def metric(method_names, metric_names, dataset_names, limit_length, parallel, frame_vis, default_instancer):
 
@@ -43,10 +44,8 @@ def metric(method_names, metric_names, dataset_names, limit_length, parallel, fr
 				ev = Evaluation(
 					method_name = method, 
 					dataset_name = dset,
-					# metrics
-					# metrics = ['PixelClassification'],
 				)
-
+				
 				ag = ev.calculate_metric_from_saved_outputs(
 					metric,
 					sample = (dset, range(limit_length)) if limit_length != 0 else None,

@@ -182,7 +182,10 @@ class DatasetBase:
 		channels = channels or self.channels.keys()
 
 		for ch_name in channels:
-			out_fr[ch_name] = self.channels[ch_name].read(dset=self, **fr)
+			try:
+				out_fr[ch_name] = self.channels[ch_name].read(dset=self, **fr)
+			except FileNotFoundError:
+				out_fr[ch_name] = None
 
 		return out_fr
 	

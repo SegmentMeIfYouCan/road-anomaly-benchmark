@@ -69,6 +69,8 @@ class DatasetRA(DatasetBase):
 			fr['label_pixel_gt'] = label
 		elif wants_labels_explicitly:
 			raise KeyError(f'No labels for {key} in {self}')
+		else:
+			fr['label_pixel_gt'] = None
 
 
 		return fr

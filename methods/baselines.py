@@ -4,7 +4,6 @@ from pathlib import Path
 import torch
 import h5py
 import numpy as np
-import tensorflow as tf
 import torch.nn.functional as F
 
 from PIL import Image
@@ -13,7 +12,7 @@ from .image_dissimilarity.data.cityscapes_dataset import one_hot_encoding
 from .image_segmentation.datasets.cityscapes_labels import label2trainid
 from .options.config_class import Config
 from .utils import download_checkpoint, download_zip, init_pytorch_DeepWV3Plus, get_softmax, get_calibrated_softmax, \
-    mahalanobis_modification, get_activations, load_gdrive_file, download_tar, get_segmentation, get_synthesis, \
+    mahalanobis_modification, get_activations, download_tar, get_segmentation, get_synthesis, \
     get_dissimilarity, get_synboost_transformations, get_entropy
 
 
@@ -24,6 +23,7 @@ class Max_softmax:
         checkpoint_path = DIR_CHECKPOINTS / "DeepLabV3+_WideResNet38_baseline.pth"
         if not checkpoint_path.is_file():
             checkpoint_download_url = os.path.join("https://uni-wuppertal.sciebo.de/s/", modelid, "download")
+            print("Download checkpoint from:", checkpoint_download_url)
             filename = download_checkpoint(checkpoint_download_url, DIR_CHECKPOINTS)
             (DIR_CHECKPOINTS / filename).rename(checkpoint_path)
         self.model = init_pytorch_DeepWV3Plus(checkpoint_path)
@@ -40,6 +40,7 @@ class ODIN:
         checkpoint_path = DIR_CHECKPOINTS / "DeepLabV3+_WideResNet38_baseline.pth"
         if not checkpoint_path.is_file():
             checkpoint_download_url = os.path.join("https://uni-wuppertal.sciebo.de/s/", modelid, "download")
+            print("Download checkpoint from:", checkpoint_download_url)
             filename = download_checkpoint(checkpoint_download_url, DIR_CHECKPOINTS)
             (DIR_CHECKPOINTS / filename).rename(checkpoint_path)
         self.model = init_pytorch_DeepWV3Plus(checkpoint_path)
@@ -55,6 +56,7 @@ class Mahalanobis:
         estimates_path = DIR_CHECKPOINTS / "cityscapes_train_estimates_global.h5"
         if not checkpoint_path.is_file() or not estimates_path.is_file():
             zip_download_url = os.path.join("https://uni-wuppertal.sciebo.de/s/", modelid, "download")
+            print("Download checkpoint from:", zip_download_url)
             filename = download_zip(zip_download_url, DIR_CHECKPOINTS)
             os.remove(filename)
         with h5py.File(estimates_path, "r") as data:
@@ -86,6 +88,7 @@ class Entropy_max:
         checkpoint_path = DIR_CHECKPOINTS / "DeepLabV3+_WideResNet38_epoch_4_alpha_0.9.pth"
         if not checkpoint_path.is_file():
             checkpoint_download_url = os.path.join("https://uni-wuppertal.sciebo.de/s/", modelid, "download")
+            print("Download checkpoint from:", checkpoint_download_url)
             filename = download_checkpoint(checkpoint_download_url, DIR_CHECKPOINTS)
             (DIR_CHECKPOINTS / filename).rename(checkpoint_path)
         self.model = init_pytorch_DeepWV3Plus(checkpoint_path)
@@ -94,57 +97,13 @@ class Entropy_max:
         return get_entropy(self.model, image)
 
 
-class voidclassifier:
-    def __init__(self, modelid):
-        load_gdrive_file(modelid, str(DIR_CHECKPOINTS))
-        tf.compat.v1.enable_resource_variables()
-        self.model = tf.saved_model.load(str(DIR_CHECKPOINTS))
-
-    def anomaly_score(self, image):
-        image = tf.cast(image, tf.float32)
-        image_shape = image.shape[:2]
-        image = tf.image.resize(image, (1024, 2048))
-        out = self.model.signatures['serving_default'](image[tf.newaxis])['anomaly_score']
-        out = tf.image.resize(out[..., tf.newaxis], image_shape)
-        return tf.squeeze(out).numpy().astype("float32")
-
-
-class dropout:
-    def __init__(self, modelid):
-        load_gdrive_file(modelid, str(DIR_CHECKPOINTS))
-        tf.compat.v1.enable_resource_variables()
-        self.model = tf.saved_model.load(str(DIR_CHECKPOINTS))
-
-    def anomaly_score(self, image):
-        image = tf.cast(image, tf.float32)
-        image_shape = image.shape[:2]
-        image = tf.image.resize(image, (1024, 2048))
-        out = self.model.signatures['serving_default'](image[tf.newaxis])['anomaly_score']
-        out = tf.image.resize(out[..., tf.newaxis], image_shape)
-        return tf.squeeze(out).numpy().astype("float32")
-
-
-class mindensity:
-    def __init__(self, modelid):
-        load_gdrive_file(modelid, str(DIR_CHECKPOINTS))
-        tf.compat.v1.enable_resource_variables()
-        self.model = tf.saved_model.load(str(DIR_CHECKPOINTS))
-
-    def anomaly_score(self, image):
-        image = tf.cast(image, tf.float32)
-        image_shape = image.shape[:2]
-        image = tf.image.resize(image, (1024, 2048))
-        out = self.model.signatures['serving_default'](image[tf.newaxis])['anomaly_score']
-        out = tf.image.resize(out[..., tf.newaxis], image_shape)
-        return tf.squeeze(out).numpy().astype("float32")
-
-
 class SynBoost:
     """Code from https://github.com/giandbt/synboost"""
     def __init__(self, seed=0):
         checkpoints_dir = os.path.join(DIR_CHECKPOINTS, "synboost_weights")
         if not os.path.exists(checkpoints_dir):
             pretrained_weights_url = os.path.join("http://robotics.ethz.ch/~asl-datasets/Dissimilarity/models.tar")
+            print("Download checkpoint from:", pretrained_weights_url)
             filename = download_tar(pretrained_weights_url, DIR_CHECKPOINTS)
             os.remove(filename)
             os.rename(os.path.join(DIR_CHECKPOINTS, "models"), os.path.join(DIR_CHECKPOINTS, "synboost_weights"))

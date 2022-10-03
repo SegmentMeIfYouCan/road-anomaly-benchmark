@@ -104,32 +104,52 @@ class Evaluation:
 			fr_iterable = self.get_dataset()
 			fr_iterable_len = fr_iterable.__len__()
 
-		for fr in tqdm(fr_iterable, total=fr_iterable_len):
-			frame = {"method_name": self.method_name, "dset_name": fr.dset_name, "fid": fr.fid}
-			fr["mask_path"] = self.channels['anomaly_mask_path'].format(**frame)
+		frame_vis_only = frame_vis == 'only'
+		if not frame_vis_only:
+			for fr in tqdm(fr_iterable, total=fr_iterable_len):
+				frame = {"method_name": self.method_name, "dset_name": fr.dset_name, "fid": fr.fid}
+				fr["mask_path"] = self.channels['anomaly_mask_path'].format(**frame)
 
-			if metric.cfg.default_instancer:
 				anomaly_p = self.channels['anomaly_p'].read(
-						method_name = self.method_name,
-						dset_name = fr.dset_name,
-						fid = fr.fid,
-					)
-			else:
-				anomaly_p = None
+					method_name = self.method_name,
+					dset_name = fr.dset_name,
+					fid = fr.fid,
+				)
+				anomaly_p = np.squeeze(anomaly_p)
 
-			fr_result = metric.process_frame(
-				anomaly_p = anomaly_p,
+				fr_result = metric.process_frame(
+					anomaly_p = anomaly_p,
+					method_name = self.method_name,
+					visualize = bool(frame_vis),
+					**fr,
+				)
+				fr_results.append(fr_result)
+
+			return metric.aggregate(
+				fr_results,
 				method_name = self.method_name,
-				visualize = frame_vis,
-				**fr,
+				dataset_name = self.dataset_name,
 			)
-			fr_results.append(fr_result)
+		else:
+			for fr in tqdm(fr_iterable, total=fr_iterable_len):
+				frame = {"method_name": self.method_name, "dset_name": fr.dset_name, "fid": fr.fid}
+				fr["mask_path"] = self.channels['anomaly_mask_path'].format(**frame)
 
-		return metric.aggregate(
-			fr_results,
-			method_name = self.method_name,
-			dataset_name = self.dataset_name,
-		)
+				anomaly_p = self.channels['anomaly_p'].read(
+					method_name = self.method_name,
+					dset_name = fr.dset_name,
+					fid = fr.fid,
+				)
+				anomaly_p = np.squeeze(anomaly_p)
+
+				metric.vis_frame(
+					fid=fr.fid, 
+					dset_name=fr.dset_name, 
+					method_name=self.method_name, 
+					mask_roi=np.ones(fr.image.shape, dtype=bool),
+					anomaly_p=anomaly_p,
+					image = fr.image
+				)
 
 	@classmethod
 	def metric_worker(cls, method_name, metric_name, frame_vis, default_instancer, dataset_name_and_frame_idx):
@@ -158,6 +178,7 @@ class Evaluation:
 					dset_name=fr.dset_name,
 					fid=fr.fid,
 				)
+				heatmap = np.squeeze(heatmap)
 				if heatmap.shape[1] < fr.image.shape[1]:
 					heatmap = cv.resize(heatmap.astype(np.float32), fr.image.shape[:2][::-1],
 										interpolation=cv.INTER_LINEAR)
@@ -168,7 +189,7 @@ class Evaluation:
 				result = metric.process_frame(
 					anomaly_p = heatmap,
 					method_name = method_name, 
-					visualize = frame_vis,
+					visualize = bool(frame_vis),
 					**fr,
 				)
 				return result
@@ -218,13 +239,15 @@ class Evaluation:
 			
 			processed_frames = list(tqdm(it, total=tasks.__len__()))
 
-		ag = metric.aggregate(	
-			processed_frames,
-			method_name = self.method_name,
-			dataset_name = dset_name,
-		)
-
-		return ag
+		frame_vis_only = frame_vis == 'only'
+		if not frame_vis_only:
+			ag = metric.aggregate(	
+				processed_frames,
+				method_name = self.method_name,
+				dataset_name = dset_name,
+			)
+			
+			return ag
 	
 
 	def calculate_metric_from_saved_outputs(self, metric_name, sample=None, parallel=True, show_plot=False,
@@ -237,17 +260,18 @@ class Evaluation:
 		else:
 			ag = self.run_metric_single(metric_name, sample, frame_vis, default_instancer)
 
-		dset_name = sample[0] if sample is not None else self.dataset_name
+		if ag is not None:
+			dset_name = sample[0] if sample is not None else self.dataset_name
 
-		metric.save(
-			ag, 
-			method_name = self.method_name,
-			dataset_name = dset_name,
-		)
+			metric.save(
+				ag, 
+				method_name = self.method_name,
+				dataset_name = dset_name,
+			)
 
-		metric.plot_single(ag, close = not show_plot)
+			metric.plot_single(ag, close = not show_plot)
 
-		return ag
+			return ag
 
 
 	def wait_to_finish_saving(self):
