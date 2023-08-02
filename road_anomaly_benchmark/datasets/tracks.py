@@ -32,13 +32,13 @@ class DatasetRA(DatasetBase):
 		self.set_frames([EasyDict(fid=fid) for fid in fids])
 		self.check_size()
 
-
-	def check_size(self):
-		desired_len = self.cfg.get('expected_length')
-		actual_len = self.__len__()
-
-		if desired_len is not None and actual_len != desired_len:
-			raise ValueError(f'The dataset should have {desired_len} frames but found {actual_len}')
+	@staticmethod
+	def mask_from_label_range(labels, id_or_range):
+		if isinstance(id_or_range, (tuple, list)) and id_or_range.__len__() == 2:
+			range_low, range_high = id_or_range
+			return (range_low <= labels) & (labels <= range_high)
+		else:
+			return labels == id_or_range
 
 	def get_frame(self, key, *channels):
 
@@ -55,25 +55,20 @@ class DatasetRA(DatasetBase):
 		if sem_gt is not None:
 			h, w = sem_gt.shape[:2]
 			label = np.full((h, w), 255, dtype=np.uint8)
-			label[sem_gt == self.cfg.classes.usual] = 0
 
-			anomaly = self.cfg.classes.anomaly
-			if isinstance(anomaly, (tuple, list)) and anomaly.__len__() == 2:
-				range_low, range_high = anomaly
-				anomaly_mask = (range_low <= sem_gt) & (sem_gt <= range_high)
-			else:
-				anomaly_mask = sem_gt == anomaly
-
-			label[anomaly_mask] = 1
+			label[self.mask_from_label_range(sem_gt, self.cfg.classes.usual)] = 0
+			label[self.mask_from_label_range(sem_gt, self.cfg.classes.anomaly)] = 1
 
 			fr['label_pixel_gt'] = label
 		elif wants_labels_explicitly:
 			raise KeyError(f'No labels for {key} in {self}')
-		else:
-			fr['label_pixel_gt'] = None
 
 
 		return fr
+
+	def __str__(self):
+		dir_root = self.cfg.get('dir_root', 'NO DIR ROOT')
+		return f'{self.cfg.name}({dir_root})'
 
 
 @DatasetRegistry.register_class()
@@ -228,7 +223,7 @@ class DatasetObstacleTrack(DatasetRA):
 					fr.fid.startswith(p) for p in excluded_prefixes
 				])
 			]
-			print(f'Exclude {frlen} -> {frames_filtered.__len__()}')
+			log.info(f'{self.name}: Exclude {frlen} -> {frames_filtered.__len__()}')
 
 		super().set_frames(frames_filtered)
 
@@ -376,7 +371,7 @@ class DatasetLostAndFound(DatasetRA):
 			raise FileNotFoundError(f'Did not find images at {img_dir}')
 
 
-		log.info(f'LAF: found images in {img_ext} format')
+		log.info(f'{self.name}: found images in {img_ext} format')
 		self.img_fmt = img_ext
 
 		# LAF's PNG images contain a gamma value which makes them washed out, ignore it
@@ -405,7 +400,7 @@ class DatasetLostAndFound(DatasetRA):
 					fr.fid.startswith(p) for p in excluded_prefixes
 				])
 			]
-			print(f'Exclude {frlen} -> {frames.__len__()}')
+			log.info(f'{self.name}: Exclude {frlen} -> {frames.__len__()}')
 
 		self.set_frames(frames)
 		self.check_size()
@@ -413,81 +408,73 @@ class DatasetLostAndFound(DatasetRA):
 
 @DatasetRegistry.register_class()
 class DatasetSmallObstacle(DatasetRA):
+
+	SOD_LABELS = dict(
+		# road=0,
+		# obstacle=1,
+		# ignore=255,
+
+		usual = 1,
+		anomaly = (2, 254),
+	)
+
 	# this dataset needs to be preprocessed: create binary lo
 	configs = [
 		dict(
 			name='SmallObstacleDataset-train',
 			split='train',
-			dir_root=DIR_DATASETS / 'Small_Obstacle_Dataset',
-			classes=dict(
-				road=0,
-				obstacle=1,
-				ignore=255,
-
-				usual = 0,
-				anomaly = 1,
-			),
+			dir_root=DIR_DATASETS / 'dataset_SmallObstacleDataset',
+			classes=SOD_LABELS,
 		),
 		dict(
 			name='SmallObstacleDataset-test',
 			split='test',
-			dir_root=DIR_DATASETS / 'Small_Obstacle_Dataset',
-			classes=dict(
-				road=0,
-				obstacle=1,
-				ignore=255,
-
-				usual = 0,
-				anomaly = 1,
-			),
+			dir_root=DIR_DATASETS / 'dataset_SmallObstacleDataset',
+			classes=SOD_LABELS,
 		),
 		dict(
 			name='SmallObstacleDataset-val',
 			split='val',
-			dir_root=DIR_DATASETS / 'Small_Obstacle_Dataset',
-			classes=dict(
-				road=0,
-				obstacle=1,
-				ignore=255,
-
-				usual = 0,
-				anomaly = 1,
-			),
+			dir_root=DIR_DATASETS / 'dataset_SmallObstacleDataset',
+			classes=SOD_LABELS,
 		),
 	]
 
 	channels = {
-		'image': ChannelLoaderImage("{dset.cfg.dir_root}/{dset.cfg.split}/{direc}/image/{fid}.png"),
-		'semantic_class_gt': ChannelLoaderImage("{dset.cfg.dir_root}/{dset.cfg.split}/{direc}/labels/{fid}.png"),
+		'image': ChannelLoaderImage("{dset.cfg.dir_root}/{dset.cfg.split}/{scene}/image/{frame_num}.png"),
+		'semantic_class_gt': ChannelLoaderImage("{dset.cfg.dir_root}/{dset.cfg.split}/{scene}/labels/{frame_num}.png"),
 	}
 
-	def sod_id_from_image_path(cls, path, **_):
-		fid = path.stem
-		direc = str(fid).split('_')[0] + '_' + str(fid).split('_')[1]
+	@staticmethod
+	def sod_id_from_relative_label_path(path):
+		
+		# Paths are in the format
+		# DIR_SPLIT / scene / "labels" / 0021410841.png
+		scene = path.parts[0]
+		frame_num = path.stem
+		fid = f'{scene}_{frame_num}'
+
 		return EasyDict(
-			fid=fid,
-			direc=direc
+			fid = fid,
+			scene = scene,
+			frame_num = frame_num,
 		)
 
 	def discover(self):
-		img_dir = Path(self.cfg.dir_root) / self.cfg.split
+		split_dir = Path(self.cfg.dir_root) / self.cfg.split
 
-		for img_ext in ['png', 'webp', 'jpg']:
-			img_files = list(img_dir.glob(f'*/labels/*.{img_ext}'))
-			if img_files:
-				break
-
-		if not img_files:
-			raise FileNotFoundError(f'Did not find images at {img_dir}')
-
-		log.info(f'SOD: found images in {img_ext} format')
-		self.img_fmt = img_ext
+		label_paths = list(split_dir.glob(f'*/labels/*.png'))
+		if not label_paths:
+			raise FileNotFoundError(f'{self.name}: Did not find images at {split_dir}')
+		
+		label_paths.sort()
 
 		frames = [
-			self.sod_id_from_image_path(p)
-			for p in img_files
+			self.sod_id_from_relative_label_path(p.relative_to(split_dir))
+			for p in label_paths
 		]
-		frames.sort(key=itemgetter('fid'))
+
+		log.info(f'{self.name}: found {frames.__len__()} images')
 
 		self.set_frames(frames)
 		self.check_size()

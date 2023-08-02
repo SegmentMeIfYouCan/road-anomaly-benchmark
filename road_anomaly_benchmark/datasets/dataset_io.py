@@ -65,12 +65,18 @@ class ChannelLoaderFileCollection:
 
 
 class ChannelLoaderImage(ChannelLoaderFileCollection):
-	def __init__(self, file_path_tmpl=None, save_opts={}):
+	def __init__(self, file_path_tmpl=None, save_opts={}, drop_alpha=True):
 		super().__init__(file_path_tmpl)
 		self.save_opts = save_opts
+		self.drop_alpha = drop_alpha
 
 	def read_file(self, path):
-		return imread(path, **self.save_opts)
+		img_data = imread(path, **self.save_opts)
+
+		if img_data.shape.__len__() > 2 and img_data.shape[2] == 4 and self.drop_alpha:
+			img_data = img_data[:, :, :3]
+
+		return img_data
 
 	def write_file(self, path, data):
 		imwrite(path, data)
@@ -166,6 +172,9 @@ class DatasetBase:
 	def name(self):
 		return self.cfg.name
 
+	def __str__(self):
+		return self.cfg.name
+
 	def set_frames(self, frame_list):
 		self.frames = list(frame_list)
 		self.frames.sort(key = itemgetter('fid'))
@@ -194,7 +203,7 @@ class DatasetBase:
 		actual_len = self.__len__()
 
 		if desired_len is not None and actual_len != desired_len:
-			raise ValueError(f'The dataset should have {desired_len} frames but found {actual_len}')
+			raise ValueError(f'{self}: The dataset should have {desired_len} frames but found {actual_len}')
 
 	def iter(self, *channels):
 		"""
@@ -202,8 +211,21 @@ class DatasetBase:
 			for fr in dset.iter('image'):
 				process(fr.image)
 		"""
-		for idx in range(self.__len__()):
-			yield self.get_frame(idx, *channels)
+
+		class It:
+			def __init__(self, dset, channels):
+				self.dset = dset
+				self.channels = channels
+
+			def __len__(self):
+				return self.dset.__len__()
+
+			def __iter__(self):
+				for idx in range(self.__len__()):
+					yield self.dset.get_frame(idx, *self.channels)
+		
+		return It(self, channels)	
+
 
 	def __getitem__(self, idx_or_fid):
 		return self.get_frame(idx_or_fid)
@@ -212,5 +234,5 @@ class DatasetBase:
 		return self.frames.__len__()
 
 	def __iter__(self):
-		return self.iter()
-
+		for idx in range(self.__len__()):
+			yield self[idx]

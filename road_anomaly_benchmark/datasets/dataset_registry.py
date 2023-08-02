@@ -3,6 +3,8 @@ import logging
 from typing import Callable
 from functools import partial
 
+from easydict import EasyDict
+
 log = logging.getLogger(__name__)
 
 class Registry:
@@ -60,6 +62,8 @@ class Registry:
 				configs = configs()
 
 			for cfg in configs:
+				if isinstance(cfg, dict):
+					cfg = EasyDict(cfg)
 				self.register(cfg['name'], partial(class_to_register, cfg))	
 
 			return class_to_register
