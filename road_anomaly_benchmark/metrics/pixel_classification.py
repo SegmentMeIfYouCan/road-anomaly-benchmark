@@ -29,14 +29,20 @@ def binary_confusion_matrix(
 	if bin_strategy == 'uniform':
 		# bins spread uniforms in 0 .. 1
 		bins = num_bins
-		histogram_range = [0, 1]
+		histogram_range = [-0.01, 1.01]
 
 	elif bin_strategy == 'percentiles':
 		# dynamic bins representing the range of occurring values
 		# bin edges are following the distribution of positive and negative pixels
 
+		# choose thresholds to surround the range of values
+		vmin = np.min(prob)
+		vmax = np.max(prob)
+		vrange = vmax-vmin
+		eps = np.maximum(vrange*1e-2, 1e-2) # make sure there is some separation between the thresholds
+
 		bins = [
-			[0, 1], # make sure 0 and 1 are included
+			[vmin - eps, vmax + eps]
 		]
 
 		if prob_at_true.size:
@@ -174,9 +180,7 @@ class MetricPixelClassification(EvaluationMetric):
 		try:
 			mask_roi = label_pixel_gt < 255
 		except TypeError:
-			print("error: no ground truth available for {}. Please check dataset path...".format(fid))
-			exit()
-
+			raise RuntimeError(f"No ground truth available for {fid}. Please check dataset path...")
 		labels_in_roi = label_pixel_gt[mask_roi]
 		predictions_in_roi = anomaly_p[mask_roi]
 
