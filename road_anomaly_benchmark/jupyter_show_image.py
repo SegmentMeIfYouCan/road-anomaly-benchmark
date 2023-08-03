@@ -26,14 +26,9 @@ import numpy as np
 from PIL import Image as PIL_Image
 from matplotlib import cm
 from IPython.display import display_html
-
-from skimage.segmentation import mark_boundaries
+from math import ceil
 from scipy.ndimage.morphology import binary_dilation
-import matplotlib
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-import cv2
-matplotlib.use('Agg')
+
 
 ### Image IO
 
@@ -54,37 +49,42 @@ def imwrite(path, data, format=None):
         **IMWRITE_OPTS.get(path.suffix.lower()[1:], {}),
     )
 
+# try:
+#     import cv2
+#     def binary_dilation(arr, kernel):
+#         return cv2.dilate(arr, kernel = kernel, iterations=1)
+# except ImportError:
 
-def get_boundary_mask(arr, index=1):
-    arr[arr != index] = 0
-    arr[arr == index] = 255
-    bd = mark_boundaries(arr, arr)
-    mask = binary_dilation(np.all(bd == [1, 1, 0], axis=-1).astype(int)).astype("uint8")
-    mask = cv2.dilate(mask, kernel = np.ones((5, 5), np.uint8), iterations=1)
-    bd[np.all(bd == np.ones(3), axis=-1)] = np.zeros(3)
-    bd[mask == 1] = [0, 1, 0]
-    im = (bd * 255).astype("uint8")
-    return im
 
+
+def get_boundary_mask(arr, index=1, thickness=2):
+    ks = thickness * 2 + 1
+    kernel = np.ones((ks, ks), np.uint8)
+
+    mask = (arr == index).astype(np.uint8) * 255
+    mask_outer = binary_dilation(arr, kernel)
+    mask_contour = (mask_outer - mask).astype(bool)
+
+    return mask_contour
+
+CM_SEGME_HEATMAP = cm.get_cmap('RdBu_r', 16)
 
 def get_heat(heat_array, overlay=None, vrange=None):
     heat_array = heat_array.astype("float32")
-    h, w = heat_array.shape
-    dpi = 100
-    fig = plt.Figure(figsize=(w / dpi, h / dpi), dpi=dpi, frameon=False)
-    canvas = FigureCanvas(fig)
-    ax = fig.add_axes([0, 0, 1, 1])
-    ax.axis('off')
-    if vrange is None:
-        ax.imshow(heat_array, cmap=plt.get_cmap('RdBu_r', 16), interpolation='none')
-    else:
-        ax.imshow(heat_array, cmap=plt.get_cmap('RdBu_r', 16), interpolation='none', vmin=vrange[0], vmax=vrange[1])
-    canvas.draw()
-    heat_arr = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape((h, w, 3))
+    
+    heat_img = adapt_img_data(
+        heat_array,
+        cmap_pos=CM_SEGME_HEATMAP, cmap_div=CM_SEGME_HEATMAP,
+        value_range=vrange,
+    )
+        
     if overlay is not None:
         bd = get_boundary_mask(overlay)
-        heat_arr[~np.all(bd == (0, 0, 0), axis=-1)] = bd[~np.all(bd == (0, 0, 0), axis=-1)]
-    return heat_arr
+
+        # max the green channel on boundary mask
+        heat_img[bd, 2] = 255
+
+    return heat_img
 
 
 ### Image display
@@ -129,7 +129,7 @@ def adapt_img_data(img_data, cmap_pos=cm.get_cmap('magma'), cmap_div=cm.get_cmap
             else:
                 #vmin = np.min(img_data)
 
-                if vmin >= 0:
+                if (vmin >= 0) == (vmax >= 0):
                     img_data = (img_data - vmin) * (1 / (vmax - vmin))
                     img_data = cmap_pos(img_data, bytes=True)[:, :, :3]
 
@@ -223,3 +223,83 @@ class ImageGridHTML:
         ImageGridHTML(*images, **options).show()
 
 show = ImageGridHTML.show_image
+
+
+def image_montage_same_shape(imgs, num_cols=2, downsample=1, border=0, border_color=(128, 128, 128), captions=None, caption_color=(200, 128, 0), caption_size=3):
+	"""
+	example:
+	`image_montage_same_shape(
+		imgs = [
+			A, B,
+			C, D,
+		],
+		num_cols=2,
+		border = 4,
+		border_color = (128, 128, 128),
+		captions = [
+			'A', 'B',
+			'C', 'D',
+		],
+	)`
+	"""
+
+	num_imgs = imgs.__len__()
+	num_rows = int(np.ceil(num_imgs / num_cols))
+	
+	img_sizes = np.array([
+		(img.shape[:2] if img is not None else [0, 0]) for img in imgs
+	], dtype=np.int32) // downsample
+	
+	img_size_biggest = np.max(img_sizes, axis=0) 
+	img_size_with_border = img_size_biggest + border
+
+	full_size = (num_rows * img_size_biggest[0] + (num_rows-1)*border, num_cols * img_size_biggest[1] + (num_cols-1)*border, 3)
+
+	out = np.full(full_size, fill_value=border_color, dtype=np.uint8)
+
+	row_col_pos = np.array([0, 0])
+
+	caption_scale = caption_size / 3
+	caption_offset = (round(18*caption_scale), round(50*caption_scale))
+
+	for idx, img in enumerate(imgs):
+		# none means black section
+		if img is not None:
+			#img = ensure_numpy_image(img)
+			if downsample != 1:
+				img = img[::downsample, ::downsample]
+			
+			img = adapt_img_data(img)
+			if img.shape.__len__() == 2:
+				img = np.tile(img[:, :, None], (1, 1, 3))
+
+			img_sz = img_sizes[idx]
+			tl = img_size_with_border * row_col_pos
+			br = tl + img_sz
+
+			out[tl[0]:br[0], tl[1]:br[1]] = img[:img_sz[0], :img_sz[1]]
+		
+
+		tl = img_size_with_border * row_col_pos
+
+		if captions is not None and captions[idx]:
+			import cv2 as cv
+
+			caption = captions[idx]
+
+			caption_coord = (
+				caption_offset[0] + tl[1],
+				caption_offset[1] + tl[0],
+			)
+
+			# shadow
+			out = cv.putText(out, caption, caption_coord, cv.FONT_HERSHEY_DUPLEX, caption_size / downsample, color=(0, 0, 0), thickness=ceil(4/downsample))
+			# foreground
+			out = cv.putText(out, caption, caption_coord, cv.FONT_HERSHEY_DUPLEX, caption_size / downsample, color=caption_color, thickness=ceil(2/downsample))
+
+		row_col_pos[1] += 1
+		if row_col_pos[1] >= num_cols:
+			row_col_pos[0] += 1
+			row_col_pos[1] = 0
+
+	return out

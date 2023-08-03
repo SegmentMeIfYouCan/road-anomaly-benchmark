@@ -10,7 +10,11 @@ from pathlib import Path
 from .base import EvaluationMetric, MetricRegistry
 from ..evaluation import DIR_OUTPUTS
 from ..datasets.dataset_io import hdf5_write_hierarchy_to_file, hdf5_read_hierarchy_from_file
-from ..jupyter_show_image import adapt_img_data, imwrite, imread
+from ..jupyter_show_image import adapt_img_data, imwrite, imread, image_montage_same_shape
+
+from matplotlib import cm
+CMAP = cm.get_cmap('plasma')
+CMAP = cm.get_cmap('magma')
 
 
 def default_instancer(anomaly_p: np.ndarray, label_pixel_gt: np.ndarray, thresh_p: float,
@@ -220,6 +224,7 @@ class MetricSegment(EvaluationMetric):
         return self.cfg.name
 
     def vis_frame(self, fid, dset_name, method_name, mask_roi, anomaly_p, image=None, **_):
+
         segmentation = np.copy(anomaly_p)
         segmentation[anomaly_p > self.cfg.thresh_p] = 1
         segmentation[anomaly_p <= self.cfg.thresh_p] = 0
@@ -228,6 +233,35 @@ class MetricSegment(EvaluationMetric):
         heatmap_color = adapt_img_data(segmentation)
         canvas[mask_roi] = canvas[mask_roi] // 2 + heatmap_color[mask_roi] // 2
         imwrite(DIR_OUTPUTS / f'vis_SegPred' / method_name / dset_name / f'{fid}.webp', canvas)
+
+        # heatmap = adapt_img_data(anomaly_p, cmap_pos=CMAP)
+        heatmap = adapt_img_data(-anomaly_p, cmap_pos=CMAP)
+                
+        fused_img = image.copy()
+        fused_img[mask_roi] = heatmap[mask_roi]
+        
+        thr_mask = anomaly_p > self.cfg.thresh_p
+
+        thr_image = image.copy()
+        thr_image[thr_mask & mask_roi] = (255, 0, 0)
+        thr_image[~mask_roi] //= 2
+
+        demo_img = image_montage_same_shape([
+                image, fused_img,
+                heatmap, thr_image,
+            ],
+            # captions = [fid, method_name, '', ''],
+            captions = None,
+            border = 4,
+            caption_size = 1.5,
+            downsample = 2,
+        )
+        
+        imwrite(DIR_OUTPUTS / f'vis_SegPred2' / method_name / dset_name / f'{fid}.webp', demo_img)
+
+        return demo_img
+
+
 
     def process_frame(self, label_pixel_gt: np.ndarray, anomaly_p: np.ndarray, fid : str=None, dset_name : str=None,
                       method_name : str=None, visualize : bool = True, **_):

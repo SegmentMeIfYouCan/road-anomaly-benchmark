@@ -4,6 +4,7 @@ from typing import List, Dict
 from operator import attrgetter
 
 import numpy as np
+
 from matplotlib import pyplot
 from easydict import EasyDict
 from pandas import DataFrame, Series
@@ -278,7 +279,14 @@ def plot_classification_curves(curve_infos : List[BinaryClassificationCurve], me
 	])
 	table_scores = table_scores.sort_values('AveragePrecision', ascending=False)
 
-	fig = pyplot.figure(figsize=(18, 8))
+	try:
+		fig = pyplot.figure(figsize=(18, 8))
+	except AttributeError:
+		# Can cause a failure if trying to load GTK
+		import matplotlib
+		matplotlib.use('agg')
+		fig = pyplot.figure(figsize=(18, 8))
+
 	plot_roc, plot_prc = fig.subplots(1, 2)
 	
 	plot_prc.set_xlabel('recall')
