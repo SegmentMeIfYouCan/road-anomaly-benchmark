@@ -113,7 +113,7 @@ def binary_confusion_matrix(
 
 def test_binary_confusion_matrix():
 	pp = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
-	gt = np.array([0, 0, 0, 0, 0, 1, 1, 0, 1], dtype=np.bool)
+	gt = np.array([0, 0, 0, 0, 0, 1, 1, 0, 1], dtype=bool)
 	cmat = binary_confusion_matrix(pp, gt, levels=20).cmat_sum
 	cmat_all_p = np.sum(cmat[:, :, 0], axis=1)
 	cmat_all_n = np.sum(cmat[:, :, 1], axis=1)

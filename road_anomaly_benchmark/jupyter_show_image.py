@@ -112,7 +112,7 @@ def adapt_img_data(img_data, cmap_pos=cm.get_cmap('magma'), cmap_div=cm.get_cmap
             img_data = img_data.astype(np.uint8)
 
     elif num_dims == 2:
-        if img_data.dtype == np.bool:
+        if img_data.dtype == bool:
             img_data = img_data.astype(np.uint8)*255
             #c = 'png'
 
