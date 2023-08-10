@@ -52,16 +52,13 @@ class BinaryClassificationCurve:
 def curves_from_cmats(cmats, thresholds):
 	
 	# The threshold goes from high to low
-
 	
 	# The thresholds are independent for each frame which can result in repeated thresholds.
 	# Here we collapse those segments of the curve that would be caused by repeated thresholds.
 	# We choose the indices where each threshold appears for the last time.
 	# This means that all the samples for this threshold have been accounted for. 
 
-	# is_different_from_next = thresholds[:-1] != thresholds[1:]
-	# is_different_from_next[0] = is_different_from_next[-1] = True
-	# print('is equal to next', np.nonzero(is_different_from_next)[0])
+	# Thanks to Jan Ackermann from ETHZ for reporting problems with the AP curves.
 
 	thr_unique_indices = np.concatenate([
 		[0],
@@ -81,6 +78,7 @@ def curves_from_cmats(cmats, thresholds):
 	num_pos = tp[0] + fn[0]
 	num_neg = fp[0] + tn[0]
 
+	# Ensure the end points of the curve, PR curve starts at precision = 1, recall = 0
 	if tp[0] != 0 or fp[0] != 0:
 		tp = np.concatenate([[0], tp])
 		fp = np.concatenate([[0], fp])
@@ -110,8 +108,6 @@ def curves_from_cmats(cmats, thresholds):
 
 	recalls = tp / (tp+fn)
 
-	# Ensure the end points of the curve
-	# PR curve starts at precision = 1, recall = 0
 	# if not ( precisions[0] == 1 and recalls[0] == 0 ):
 	# 	precisions = np.concatenate([[1], precisions])
 	# 	recalls = np.concatenate([[0], recalls])
