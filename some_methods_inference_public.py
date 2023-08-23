@@ -1,5 +1,6 @@
 import click
 from tqdm import tqdm
+import gc
 from road_anomaly_benchmark.evaluation import Evaluation
 from methods import baselines as baselines_module
 
@@ -35,8 +36,6 @@ def main(methods, dsets):
 
             ev = Evaluation(
                 method_name = methodname,
-                # dataset_name = 'ObstacleTrack-all',
-                # dataset_name='AnomalyTrack-test',
                 dataset_name = dset,
             )
 
@@ -45,6 +44,9 @@ def main(methods, dsets):
                 ev.save_output(frame, result)
 
             ev.wait_to_finish_saving()
+
+        del method
+        gc.collect()
 
 
 if __name__ == '__main__':
