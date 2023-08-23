@@ -161,7 +161,7 @@ class MetricPixelClassification(EvaluationMetric):
 
 		anomaly_heat = get_heat(anomaly_p, overlay=label_pixel_gt)
 		imwrite(
-			DIR_OUTPUTS / f'vis_PixelClassification' / method_name / dset_name / f'{fid}_demo_anomalyP_heat.png',
+			DIR_OUTPUTS / f'vis_PixelClassification' / method_name / dset_name / f'{fid}_demo_anomalyP_heat.webp',
 			anomaly_heat,
 		)
 

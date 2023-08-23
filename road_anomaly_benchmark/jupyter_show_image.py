@@ -61,9 +61,9 @@ def get_boundary_mask(arr, index=1, thickness=2):
     ks = thickness * 2 + 1
     kernel = np.ones((ks, ks), np.uint8)
 
-    mask = (arr == index).astype(np.uint8) * 255
+    mask = (arr == index).astype(np.uint8)
     mask_outer = binary_dilation(arr, kernel)
-    mask_contour = (mask_outer - mask).astype(bool)
+    mask_contour = mask_outer > mask
 
     return mask_contour
 
