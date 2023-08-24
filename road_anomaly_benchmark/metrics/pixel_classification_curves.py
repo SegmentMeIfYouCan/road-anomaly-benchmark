@@ -49,7 +49,7 @@ class BinaryClassificationCurve:
 		return cls(**hdf5_read_hierarchy_from_file(path))
 
 
-def curves_from_cmats(cmats, thresholds):
+def curves_from_cmats(cmats, thresholds, debug_thresholds=False):
 	
 	# The threshold goes from high to low
 	
@@ -65,10 +65,11 @@ def curves_from_cmats(cmats, thresholds):
 		np.nonzero(thresholds[:-1] != thresholds[1:])[0],
 		[cmats.__len__()-1],
 	])	
-	# print(thr_unique_indices.__len__(), 'unique thrs out of', cmats.__len__(), thr_unique_indices)
+	# print(f'Reducing sample numbers from {len(thresholds)} thresholds and {len(cmats)} cmats to {len(thr_unique_indices)}')
 
 	# Ignore the entries for repeated thresholds.
 	cmats = cmats[thr_unique_indices]
+	thresholds = thresholds[thr_unique_indices]
 
 	tp = cmats[:, 0, 0]
 	fp = cmats[:, 0, 1]
@@ -84,13 +85,14 @@ def curves_from_cmats(cmats, thresholds):
 		fp = np.concatenate([[0], fp])
 		fn = np.concatenate([[num_pos], fn])
 		tn = np.concatenate([[num_neg], tn])
+		thresholds = np.concatenate([[float(np.max(thresholds)) + 1], thresholds])
 
 	if tp[-1] != num_pos or fp[-1] != num_neg:
 		tp = np.concatenate([tp, [num_pos]])
 		fp = np.concatenate([fp, [num_neg]])
 		fn = np.concatenate([fn, [0]])
 		tn = np.concatenate([tn, [0]])
-
+		thresholds = np.concatenate([thresholds, [float(np.max(thresholds)) - 1]])
 
 	num_steps = tp.shape[0]
 
@@ -132,6 +134,20 @@ def curves_from_cmats(cmats, thresholds):
 	recall50_threshold = float(thresholds[recall50_index])
 
 	ix = np.nanargmax(f1_scores)
+
+	if debug_thresholds:
+		print('f1_scores', 'len', len(f1_scores), f1_scores)
+		print('thresholds', 'len', len(thresholds), thresholds)
+
+		from matplotlib import pyplot
+		fig, plot = pyplot.subplots(1, 1)
+		plot.plot(f1_scores, label='f1 scores')
+		plot.plot(thresholds, label='thresholds')
+		fig.legend()
+		fig.savefig('debug_best_threshold.png')
+
+
+
 	best_f1_threshold = float(thresholds[ix])
 	best_f1 = f1_scores[ix]
 
@@ -200,8 +216,12 @@ def select_points_for_curve(x, y, num_points, value_range=(0, 1)):
 	# sort and remove duplicated
 	indices = np.unique(indices)
 
+	# print(indices, 'vs', x.size)
+
 	if indices[-1] == x.size:
 		indices = indices[:-1]
+
+	# print(indices)
 
 	return dict(
 		indices = indices,
